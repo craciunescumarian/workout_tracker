@@ -1,22 +1,7 @@
 import streamlit as st
-import sqlite3
 import pandas as pd
-from database import create_connection
-
-# Function to fetch data as DataFrame
-def fetch_data():
-    conn = create_connection()
-    df = pd.read_sql_query("SELECT * FROM workouts", conn)
-    conn.close()
-    return df
-
-# Function to add an integer value to the database
-def add_value(value, date):
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute('INSERT INTO workouts (value, date) VALUES (?, ?)', (value, date))
-    conn.commit()
-    conn.close()
+from database import add_value, fetch_data
+from datetime import datetime
 
 # Streamlit UI
 st.title('Integer Input')
@@ -28,7 +13,13 @@ if st.button('Submit'):
     add_value(value, str(date))
     st.success('Value added!')
 
-# Display stored values
-st.subheader("Stored Values:")
-stored_values_df = fetch_data()
-st.dataframe(stored_values_df)
+    # Fetch and display stored values after submission
+    stored_values_df = pd.DataFrame(fetch_data())
+    st.subheader("Stored Values:")
+    st.dataframe(stored_values_df)
+
+else:
+    # Display current stored values at the start
+    stored_values_df = pd.DataFrame(fetch_data())
+    st.subheader("Stored Values:")
+    st.dataframe(stored_values_df)
