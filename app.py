@@ -20,7 +20,7 @@ def exercise_input_tab(muscle_group):
 
     # Predefined exercises
     exercises = {
-        'Legs': ['Leg Extension Machine', 'Standing Leg Curl', 'Calf Raise Machine' 'Outer Thigh Machine','Inner Thigh Machine'],
+        'Legs': ['Leg Extension Machine', 'Standing Leg Curl', 'Calf Raise Machine', 'Outer Thigh Machine','Inner Thigh Machine'],
         'Chest': ['Bench Press', 'Incline Press', 'Pec Deck'],
         'Biceps': ['Bicep Curls', 'Hammer Curls - Machine', 'Hammer Curls'],
         'Back': ['Assisted Chin Up Machine', 'Seated Row Machine', 'Lat Pull Back Row'],
