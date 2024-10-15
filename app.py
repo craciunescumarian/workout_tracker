@@ -17,7 +17,6 @@ def fetch_data_as_dataframe(user):
 # Function to create the input form for exercises
 # Function to create the input form for exercises
 def exercise_input_tab(muscle_group):
-    st.header(f"Exercises for {muscle_group}")
 
     # Predefined exercises
     exercises = {
@@ -54,23 +53,31 @@ def exercise_input_tab(muscle_group):
             exercise_data['formatted_date'] = exercise_data['date'].dt.strftime('%m/%d')
 
             # Plot the line chart for weight over time (full width)
-            st.subheader(f'Evolution of {exercise} Over Time')
+            # st.subheader(f'{exercise}')
+            st.markdown(f"""
+                <div style="border: 3px solid #FFA500; padding: 3px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                    <h4 style="color:#FFA500;">{exercise}</h4>
+                </div>
+                """, unsafe_allow_html=True)
+
+
+            
             st.line_chart(
                 exercise_data.set_index('formatted_date')['weight'],
                 height=200  
             )
 
-            # Create two columns: left for table, right for input form
+            # Create two columns: left for input form, right for table
             col1, col2 = st.columns(2)
 
             # Placeholder for the exercise table (always display it, even if empty)
-            table_placeholder = col1.empty()
+            table_placeholder = col2.empty()
 
             # Display the table using the placeholder (always show the table, even if empty)
             display_exercise_table(table_placeholder, exercise_data)
 
-            # Column 2: Display the input form (always allow input)
-            with col2:
+            # Column 1: Display the input form (always allow input)
+            with col1:
                 # Input for the weight and date with today's date as default
                 value = st.number_input(
                     f"Enter weight for {exercise}:", 
@@ -133,8 +140,7 @@ def display_exercise_table(placeholder, exercise_data):
     table_data.sort_values(by='Time', ascending=False, inplace=True)
 
     # Display the table in the placeholder
-    placeholder.dataframe(table_data)
-
+    placeholder.dataframe(table_data,height=300)
 
  
 # Main application page after the user is selected
