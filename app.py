@@ -15,7 +15,8 @@ def fetch_data_as_dataframe(user):
 
 
 # Function to create the input form for exercises
-def exercise_input_tab(muscle_group, stored_values_df):
+# Function to create the input form for exercises
+def exercise_input_tab(muscle_group):
     st.header(f"Exercises for {muscle_group}")
 
     # Predefined exercises
@@ -32,71 +33,81 @@ def exercise_input_tab(muscle_group, stored_values_df):
 
     if muscle_group in exercises:
         for exercise in exercises[muscle_group]:
-            # Fetch data for the specific exercise and user
-            exercise_data = stored_values_df[stored_values_df['exercise'] == exercise].copy()
+            # Fetch data for the specific exercise
+            df = fetch_data_as_dataframe(st.session_state['user'])
+            exercise_data = df[df['exercise'] == exercise].copy()
 
-            # Display line chart for each exercise
-            if not exercise_data.empty:
-                # Convert 'date' column to datetime
-                exercise_data['date'] = pd.to_datetime(exercise_data['date'])
-                # Sort by date
-                exercise_data.sort_values(by='date', inplace=True)
+            # Create a placeholder dataframe in case no data exists
+            if exercise_data.empty:
+                exercise_data = pd.DataFrame({
+                    'date': pd.to_datetime([]),  # Empty datetime
+                    'weight': [],  # Empty weight
+                    'exercise': []  # Empty exercise
+                })
 
-                # Create a formatted date string for x-axis
-                exercise_data['formatted_date'] = exercise_data['date'].dt.strftime('%m/%d')
+            # Convert 'date' column to datetime
+            exercise_data['date'] = pd.to_datetime(exercise_data['date'])
+            # Sort by date
+            exercise_data.sort_values(by='date', inplace=True)
 
-                # Plot the line chart for weight over time (full width)
-                st.subheader(f'Evolution of {exercise} Over Time')
-                st.line_chart(
-                    exercise_data.set_index('formatted_date')['weight'],
-                    height=200  
+            # Create a formatted date string for x-axis
+            exercise_data['formatted_date'] = exercise_data['date'].dt.strftime('%m/%d')
+
+            # Plot the line chart for weight over time (full width)
+            st.subheader(f'Evolution of {exercise} Over Time')
+            st.line_chart(
+                exercise_data.set_index('formatted_date')['weight'],
+                height=200  
+            )
+
+            # Create two columns: left for table, right for input form
+            col1, col2 = st.columns(2)
+
+            # Placeholder for the exercise table (always display it, even if empty)
+            table_placeholder = col1.empty()
+
+            # Display the table using the placeholder (always show the table, even if empty)
+            display_exercise_table(table_placeholder, exercise_data)
+
+            # Column 2: Display the input form (always allow input)
+            with col2:
+                # Input for the weight and date with today's date as default
+                value = st.number_input(
+                    f"Enter weight for {exercise}:", 
+                    min_value=1, 
+                    key=f"{muscle_group}_{exercise}_weight_input"  
+                )
+                date = st.date_input(
+                    "Select date:", 
+                    value=datetime.today().date(), 
+                    key=f"{muscle_group}_{exercise}_date_input" 
                 )
 
-                # Create two columns: left for table, right for input form
-                col1, col2 = st.columns(2)
+                # Button to add the value to the database
+                if st.button('Submit', key=f"{muscle_group}_{exercise}_submit"): 
+                    add_value(st.session_state['user'], exercise, value, str(date)) 
+                    st.success(f'Weight added for {st.session_state["user"]} in {exercise}!')
 
-                # Placeholder for the exercise table
-                table_placeholder = col1.empty()
+                    # Update the existing exercise_data directly
+                    new_entry = pd.DataFrame({
+                        'date': [pd.to_datetime(date)],
+                        'weight': [value],
+                        'exercise': [exercise]
+                    })
 
-                # Display the table using the placeholder
-                display_exercise_table(table_placeholder, exercise_data)
+                    # Append the new row to exercise_data
+                    exercise_data = pd.concat([exercise_data, new_entry], ignore_index=True)
 
-                # Column 2: Display the input form
-                with col2:
-                    # Input for the weight and date with today's date as default
-                    value = st.number_input(
-                        f"Enter weight:", 
-                        min_value=1, 
-                        key=f"{muscle_group}_{exercise}_weight_input"  
-                    )
-                    date = st.date_input(
-                        "Select date:", 
-                        value=datetime.today().date(), 
-                        key=f"{muscle_group}_{exercise}_date_input" 
-                    )
+                    # Sort the data again after adding the new row
+                    exercise_data.sort_values(by='date', inplace=True)
 
-                    # Button to add the value to the database
-                    if st.button('Submit', key=f"{muscle_group}_{exercise}_submit"): 
-                        add_value(st.session_state['user'], exercise, value, str(date)) 
-                        st.success(f'Weight added for {st.session_state["user"]} in {exercise}!')
-
-                        # Update the existing exercise_data directly
-                        new_entry = pd.DataFrame({
-                            'date': [pd.to_datetime(date)],
-                            'weight': [value],
-                            'exercise': [exercise]
-                        })
-
-                        # Append the new row to exercise_data
-                        exercise_data = pd.concat([exercise_data, new_entry], ignore_index=True)
-
-                        # Sort the data again after adding the new row
-                        exercise_data.sort_values(by='date', inplace=True)
-
-                        # Clear previous output and re-display the updated table using the placeholder
-                        display_exercise_table(table_placeholder, exercise_data) 
+                    # Clear previous output and re-display the updated table using the placeholder
+                    display_exercise_table(table_placeholder, exercise_data)
 
 
+
+
+# Function to display the exercise table
 # Function to display the exercise table
 def display_exercise_table(placeholder, exercise_data):
     # Create a table with time, weight, and status
@@ -118,8 +129,12 @@ def display_exercise_table(placeholder, exercise_data):
                 table_data.loc[index, 'status'] = '🔴⬇️' 
         previous_weight = row['Weight']
 
+    # Sort the table by 'Time' in descending order to show the latest data first
+    table_data.sort_values(by='Time', ascending=False, inplace=True)
+
     # Display the table in the placeholder
-    placeholder.dataframe(table_data) 
+    placeholder.dataframe(table_data)
+
 
  
 # Main application page after the user is selected
@@ -140,7 +155,7 @@ def main_app_page():
 
     for muscle_group, tab in zip(muscle_groups, tabs):
         with tab:
-            exercise_input_tab(muscle_group, stored_values_df)
+            exercise_input_tab(muscle_group)
 
 
 # Welcome page
