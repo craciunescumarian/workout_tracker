@@ -7,7 +7,7 @@ from streamlit import runtime
 from streamlit.web import cli as stcli
 
 # Function to fetch data as DataFrame from MongoDB
-@st.cache_data
+@st.cache_data(show_spinner=False)
 def fetch_data_as_dataframe(user):
     data = fetch_data()  
     df = pd.DataFrame(data)
@@ -20,13 +20,13 @@ def exercise_input_tab(muscle_group):
 
     # Predefined exercises
     exercises = {
-        'Legs': ['Leg Extension Machine', 'Squats', 'Leg Press'],
-        'Chest': ['Bench Press', 'Push Ups'],
-        'Biceps': ['Bicep Curls', 'Hammer Curls'],
-        'Back': ['Deadlifts', 'Pull Ups'],
-        'Triceps': ['Tricep Dips', 'Skull Crushers'],
+        'Legs': ['Leg Extension Machine', 'Standing Leg Curl', 'Calf Raise Machine' 'Outer Thigh Machine','Inner Thigh Machine'],
+        'Chest': ['Bench Press', 'Incline Press', 'Pec Deck'],
+        'Biceps': ['Bicep Curls', 'Hammer Curls - Machine', 'Hammer Curls'],
+        'Back': ['Assisted Chin Up Machine', 'Seated Row Machine', 'Lat Pull Back Row'],
+        'Triceps': ['Tricep Extension', 'Cable Triceps Press Down'],
         'Shoulders': ['Shoulder Press', 'Lateral Raises'],
-        'Core': ['Planks', 'Crunches'],
+        'Core': ['Seated Abs Machine', 'Lower Back Machine'],
         'Other': []
     }
 
