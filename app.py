@@ -8,13 +8,14 @@ from streamlit.web import cli as stcli
 
 # Function to fetch data as DataFrame from MongoDB
 @st.cache_data
-def fetch_data_as_dataframe():
+def fetch_data_as_dataframe(user):
     data = fetch_data()  
-    return pd.DataFrame(data)
+    df = pd.DataFrame(data)
+    return df[df['user'] == user] 
 
 
 # Function to create the input form for exercises
-def exercise_input_tab(muscle_group):
+def exercise_input_tab(muscle_group, stored_values_df):
     st.header(f"Exercises for {muscle_group}")
 
     # Predefined exercises
@@ -31,9 +32,8 @@ def exercise_input_tab(muscle_group):
 
     if muscle_group in exercises:
         for exercise in exercises[muscle_group]:
-            # Fetch data for the specific exercise
-            df = fetch_data_as_dataframe()
-            exercise_data = df[df['exercise'] == exercise].copy()
+            # Fetch data for the specific exercise and user
+            exercise_data = stored_values_df[stored_values_df['exercise'] == exercise].copy()
 
             # Display line chart for each exercise
             if not exercise_data.empty:
@@ -123,7 +123,7 @@ def display_exercise_table(placeholder, exercise_data):
 
  
 # Main application page after the user is selected
-def main_app_page(stored_values_df):
+def main_app_page():
     st.title(f'Workout Tracker - {st.session_state["user"]}')
 
     # Add a Back button to return to the user selection page
@@ -131,13 +131,16 @@ def main_app_page(stored_values_df):
         st.session_state['show_main'] = False  # Set flag to false
         st.rerun()  # Rerun the app to show the welcome page
 
+    # Load user-specific data
+    stored_values_df = fetch_data_as_dataframe(st.session_state['user'])
+
     # Muscle groups tabs
     muscle_groups = ['Legs', 'Chest', 'Biceps', 'Back', 'Triceps', 'Shoulders', 'Core', 'Other']
     tabs = st.tabs(muscle_groups)
 
     for muscle_group, tab in zip(muscle_groups, tabs):
         with tab:
-            exercise_input_tab(muscle_group) 
+            exercise_input_tab(muscle_group, stored_values_df)
 
 
 # Welcome page
@@ -151,25 +154,29 @@ def welcome_page():
     # Button to proceed to the main application
     if st.button('Continue'):
         if user:  # Ensure a user is selected
-            st.session_state['user'] = user
+            st.session_state['user'] = user  # Initialize the 'user' in session_state
             st.session_state['show_main'] = True  # Flag to show the main page
             st.rerun()  # Rerun the app to reflect the change
 
 
+
 # Main function controlling the app flow
 def main():
-    # Initialize session state
-    if 'user' not in st.session_state:
+    # Ensure that 'show_main' and 'user' are initialized in session state
+    if 'show_main' not in st.session_state:
         st.session_state['show_main'] = False
 
-    # Load data only once
-    if 'stored_values_df' not in st.session_state:
-        st.session_state['stored_values_df'] = fetch_data_as_dataframe()
+    if st.session_state.get('show_main', False) and 'user' in st.session_state:
+        # Load data only once after the user is selected
+        if 'stored_values_df' not in st.session_state:
+            st.session_state['stored_values_df'] = fetch_data_as_dataframe(st.session_state['user'])  # Pass the user argument
 
-    if st.session_state.get('show_main', False):
-        main_app_page(st.session_state['stored_values_df'])  
+        # Proceed to the main app page after user is selected
+        main_app_page()
     else:
+        # Show the welcome page if user not selected
         welcome_page()
+
         
         
 # App initialization
