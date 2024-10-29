@@ -59,13 +59,14 @@ def exercise_input_tab(muscle_group):
         st.line_chart(exercise_data.set_index('formatted_date')['weight'], height=200)
 
         # Create two columns for form and table
-        col1, col2 = st.columns(2)
-        table_placeholder = col2.empty()
+        col_table, col_input = st.columns(2)
+        # Column on the left for displaying the table
+        with col_table:
+            # Placeholder for the exercise table (always display it, even if empty)
+            table_placeholder = st.empty()
+            display_exercise_table(table_placeholder, exercise_data)  # Call the function to display the table
 
-        display_exercise_table(table_placeholder, exercise_data)
-
-        # Column 1: Input form
-        with col1:
+        with col_input:
             value = st.number_input(f"Enter weight for {exercise}:", min_value=1, key=f"{muscle_group}_{exercise}_weight_input")
             date = st.date_input("Select date:", value=datetime.today().date(), key=f"{muscle_group}_{exercise}_date_input")
 
@@ -137,7 +138,7 @@ def main_app_page():
 def welcome_page():
     st.title("Workout Tracker")
     st.write("Welcome! Please select a user to continue.")
-    user = st.selectbox('Select a user:', ['user1', 'user2'])
+    user = st.selectbox('Select a user:', ['Marian', 'user2'])
     if st.button('Continue'):
         if user:
             st.session_state['user'] = user
