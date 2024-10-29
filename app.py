@@ -78,19 +78,38 @@ def exercise_input_tab(muscle_group):
                 exercise_data = pd.concat([exercise_data, new_entry], ignore_index=True)
                 exercise_data.sort_values(by='date', inplace=True)
                 display_exercise_table(table_placeholder, exercise_data)
-
+    
+    st.write("") 
+    st.markdown(
+    """
+    <div style="background-color: #D4EDDA; padding: 15px; border-radius: 8px;">
+        <h4 style="color: #28A745;">Add a new exercise</h4>
+    </div>
+    """,
+    unsafe_allow_html=True
+    )
     # Option to add a new exercise
+    st.write("") 
     new_exercise = st.text_input(f"Add a new exercise to {muscle_group}:", key=f"new_{muscle_group}_exercise")
-    if st.button("Add Exercise", key=f"add_{muscle_group}_exercise") and new_exercise:
+    if st.button("➕ Add Exercise", key=f"add_{muscle_group}_exercise") and new_exercise:
         if new_exercise not in st.session_state['dynamic_exercises'].get(muscle_group, []):
             st.session_state['dynamic_exercises'].setdefault(muscle_group, []).append(new_exercise)
             save_exercises_to_json()
             st.experimental_rerun()
 
     # Option to delete an exercise
-    st.write("### Remove an Exercise")
+    st.write("") 
+    st.markdown(
+    """
+    <div style="background-color: #F8D7DA; padding: 15px; border-radius: 8px;">
+        <h4 style="color: #8B0000;">Delete an Exercise</h4>
+    </div>
+    """,
+    unsafe_allow_html=True
+    )
+    st.write("") 
     exercise_to_delete = st.selectbox(f"Select an exercise to remove from {muscle_group}:", options=exercises, key=f"delete_{muscle_group}_exercise")
-    if st.button("Delete Exercise", key=f"delete_{muscle_group}_exercise_button"):
+    if st.button("🗑️ Delete Exercise", key=f"delete_{muscle_group}_exercise_button"):
         if exercise_to_delete in st.session_state['dynamic_exercises'].get(muscle_group, []):
             st.session_state['dynamic_exercises'][muscle_group].remove(exercise_to_delete)
             save_exercises_to_json()
