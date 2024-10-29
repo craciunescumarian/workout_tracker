@@ -1,10 +1,27 @@
 import streamlit as st
 import pandas as pd
+import json
 import sys
+import os
 from datetime import datetime
 from database import add_value, fetch_data
 from streamlit import runtime
 from streamlit.web import cli as stcli
+
+# Function to initialize exercises from JSON
+def initialize_exercises():
+    # Check if JSON file exists and load it; otherwise, initialize with empty dictionary
+    if os.path.exists('exercise_data.json') and os.path.getsize('exercise_data.json') > 0:
+        with open('exercise_data.json', 'r') as file:
+            st.session_state['dynamic_exercises'] = json.load(file)
+    else:
+        # If JSON is missing or empty, initialize with an empty structure
+        st.session_state['dynamic_exercises'] = {}
+
+# Save the current exercises to JSON file to persist changes
+def save_exercises_to_json():
+    with open('exercise_data.json', 'w') as file:
+        json.dump(st.session_state['dynamic_exercises'], file)
 
 # Function to fetch data as DataFrame from MongoDB
 @st.cache_data(show_spinner=False)
@@ -13,193 +30,117 @@ def fetch_data_as_dataframe(user):
     df = pd.DataFrame(data)
     return df[df['user'] == user] 
 
-
-# Function to create the input form for exercises
 # Function to create the input form for exercises
 def exercise_input_tab(muscle_group):
+    # Exercises loaded dynamically from session state
+    exercises = st.session_state['dynamic_exercises'].get(muscle_group, [])
 
-    # Predefined exercises
-    exercises = {
-        'Legs': ['Leg Extension Machine', 'Standing Leg Curl', 'Calf Raise Machine', 'Outer Thigh Machine','Inner Thigh Machine'],
-        'Chest': ['Bench Press', 'Incline Press', 'Pec Deck'],
-        'Biceps': ['Bicep Curls', 'Hammer Curls - Machine', 'Hammer Curls'],
-        'Back': ['Assisted Chin Up Machine', 'Seated Row Machine', 'Lat Pull Back Row'],
-        'Triceps': ['Tricep Extension', 'Cable Triceps Press Down'],
-        'Shoulders': ['Shoulder Press', 'Lateral Raises'],
-        'Core': ['Seated Abs Machine', 'Lower Back Machine'],
-        'Other': []
-    }
+    for exercise in exercises:
+        # Fetch data for the specific exercise
+        df = fetch_data_as_dataframe(st.session_state['user'])
+        exercise_data = df[df['exercise'] == exercise].copy()
 
-    if muscle_group in exercises:
-        for exercise in exercises[muscle_group]:
-            # Fetch data for the specific exercise
-            df = fetch_data_as_dataframe(st.session_state['user'])
-            exercise_data = df[df['exercise'] == exercise].copy()
+        # Placeholder dataframe if no data exists
+        if exercise_data.empty:
+            exercise_data = pd.DataFrame({'date': pd.to_datetime([]), 'weight': [], 'exercise': []})
 
-            # Create a placeholder dataframe in case no data exists
-            if exercise_data.empty:
-                exercise_data = pd.DataFrame({
-                    'date': pd.to_datetime([]),  # Empty datetime
-                    'weight': [],  # Empty weight
-                    'exercise': []  # Empty exercise
-                })
+        # Convert 'date' to datetime and sort
+        exercise_data['date'] = pd.to_datetime(exercise_data['date'])
+        exercise_data.sort_values(by='date', inplace=True)
+        exercise_data['formatted_date'] = exercise_data['date'].dt.strftime('%m/%d')
 
-            # Convert 'date' column to datetime
-            exercise_data['date'] = pd.to_datetime(exercise_data['date'])
-            # Sort by date
-            exercise_data.sort_values(by='date', inplace=True)
+        # Display title, chart, and table
+        st.markdown(f"""<div style="border: 3px solid #FFA500; padding: 3px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+                        <h4 style="color:#FFA500;">{exercise}</h4></div>""", unsafe_allow_html=True)
+        st.line_chart(exercise_data.set_index('formatted_date')['weight'], height=200)
 
-            # Create a formatted date string for x-axis
-            exercise_data['formatted_date'] = exercise_data['date'].dt.strftime('%m/%d')
+        # Create two columns for form and table
+        col1, col2 = st.columns(2)
+        table_placeholder = col1.empty()
 
-            # Plot the line chart for weight over time (full width)
-            # st.subheader(f'{exercise}')
-            st.markdown(f"""
-                <div style="border: 3px solid #FFA500; padding: 3px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
-                    <h4 style="color:#FFA500;">{exercise}</h4>
-                </div>
-                """, unsafe_allow_html=True)
+        display_exercise_table(table_placeholder, exercise_data)
 
+        # Column 2: Input form
+        with col2:
+            value = st.number_input(f"Enter weight for {exercise}:", min_value=1, key=f"{muscle_group}_{exercise}_weight_input")
+            date = st.date_input("Select date:", value=datetime.today().date(), key=f"{muscle_group}_{exercise}_date_input")
 
-            
-            st.line_chart(
-                exercise_data.set_index('formatted_date')['weight'],
-                height=200  
-            )
+            if st.button('Submit', key=f"{muscle_group}_{exercise}_submit"):
+                add_value(st.session_state['user'], exercise, value, str(date))
+                st.success(f'Weight added for {st.session_state["user"]} in {exercise}!')
 
-            # Create two columns: left for input form, right for table
-            col1, col2 = st.columns(2)
+                new_entry = pd.DataFrame({'date': [pd.to_datetime(date)], 'weight': [value], 'exercise': [exercise]})
+                exercise_data = pd.concat([exercise_data, new_entry], ignore_index=True)
+                exercise_data.sort_values(by='date', inplace=True)
+                display_exercise_table(table_placeholder, exercise_data)
 
-            # Placeholder for the exercise table (always display it, even if empty)
-            table_placeholder = col2.empty()
+    # Option to add a new exercise
+    new_exercise = st.text_input(f"Add a new exercise to {muscle_group}:", key=f"new_{muscle_group}_exercise")
+    if st.button("Add Exercise", key=f"add_{muscle_group}_exercise") and new_exercise:
+        if new_exercise not in st.session_state['dynamic_exercises'].get(muscle_group, []):
+            st.session_state['dynamic_exercises'].setdefault(muscle_group, []).append(new_exercise)
+            save_exercises_to_json()  # Save the updated exercises list
+            st.rerun()
 
-            # Display the table using the placeholder (always show the table, even if empty)
-            display_exercise_table(table_placeholder, exercise_data)
-
-            # Column 1: Display the input form (always allow input)
-            with col1:
-                # Input for the weight and date with today's date as default
-                value = st.number_input(
-                    f"Enter weight for {exercise}:", 
-                    min_value=1, 
-                    key=f"{muscle_group}_{exercise}_weight_input"  
-                )
-                date = st.date_input(
-                    "Select date:", 
-                    value=datetime.today().date(), 
-                    key=f"{muscle_group}_{exercise}_date_input" 
-                )
-
-                # Button to add the value to the database
-                if st.button('Submit', key=f"{muscle_group}_{exercise}_submit"): 
-                    add_value(st.session_state['user'], exercise, value, str(date)) 
-                    st.success(f'Weight added for {st.session_state["user"]} in {exercise}!')
-
-                    # Update the existing exercise_data directly
-                    new_entry = pd.DataFrame({
-                        'date': [pd.to_datetime(date)],
-                        'weight': [value],
-                        'exercise': [exercise]
-                    })
-
-                    # Append the new row to exercise_data
-                    exercise_data = pd.concat([exercise_data, new_entry], ignore_index=True)
-
-                    # Sort the data again after adding the new row
-                    exercise_data.sort_values(by='date', inplace=True)
-
-                    # Clear previous output and re-display the updated table using the placeholder
-                    display_exercise_table(table_placeholder, exercise_data)
-
-
-
-
-# Function to display the exercise table
-# Function to display the exercise table
+# Display exercise table
 def display_exercise_table(placeholder, exercise_data):
-    # Create a table with time, weight, and status
     exercise_data['date'] = pd.to_datetime(exercise_data['date'], errors='coerce')
     table_data = exercise_data[['date', 'weight']].copy()
-    table_data['status'] = '-' 
-    table_data['date'] = table_data['date'].dt.strftime('%Y-%m-%d')  
+    table_data['status'] = '-'
+    table_data['date'] = table_data['date'].dt.strftime('%Y-%m-%d')
     table_data.rename(columns={'date': 'Time', 'weight': 'Weight'}, inplace=True)
 
-    # Ensure there are at least 2 rows for comparison
     previous_weight = None
     for index, row in table_data.iterrows():
         if previous_weight is not None:
             if row['Weight'] > previous_weight:
-                table_data.loc[index, 'status'] = '🟢⬆️' 
+                table_data.loc[index, 'status'] = '🟢⬆️'
             elif row['Weight'] == previous_weight:
-                table_data.loc[index, 'status'] = '🟡➡️'  
+                table_data.loc[index, 'status'] = '🟡➡️'
             else:
-                table_data.loc[index, 'status'] = '🔴⬇️' 
+                table_data.loc[index, 'status'] = '🔴⬇️'
         previous_weight = row['Weight']
 
-    # Sort the table by 'Time' in descending order to show the latest data first
     table_data.sort_values(by='Time', ascending=False, inplace=True)
+    placeholder.dataframe(table_data, height=300)
 
-    # Display the table in the placeholder
-    placeholder.dataframe(table_data,height=300)
-
- 
-# Main application page after the user is selected
+# Main application page
 def main_app_page():
     st.title(f'Workout Tracker - {st.session_state["user"]}')
-
-    # Add a Back button to return to the user selection page
     if st.button('Back to User Selection'):
-        st.session_state['show_main'] = False  # Set flag to false
-        st.rerun()  # Rerun the app to show the welcome page
+        st.session_state['show_main'] = False
+        st.rerun()
 
-    # Load user-specific data
     stored_values_df = fetch_data_as_dataframe(st.session_state['user'])
-
-    # Muscle groups tabs
-    muscle_groups = ['Legs', 'Chest', 'Biceps', 'Back', 'Triceps', 'Shoulders', 'Core', 'Other']
+    muscle_groups = st.session_state['dynamic_exercises'].keys()
     tabs = st.tabs(muscle_groups)
 
     for muscle_group, tab in zip(muscle_groups, tabs):
         with tab:
             exercise_input_tab(muscle_group)
 
-
 # Welcome page
 def welcome_page():
     st.title("Workout Tracker")
     st.write("Welcome! Please select a user to continue.")
-    
-    # User selection
     user = st.selectbox('Select a user:', ['user1', 'user2'])
-
-    # Button to proceed to the main application
     if st.button('Continue'):
-        if user:  # Ensure a user is selected
-            st.session_state['user'] = user  # Initialize the 'user' in session_state
-            st.session_state['show_main'] = True  # Flag to show the main page
-            st.rerun()  # Rerun the app to reflect the change
+        if user:
+            st.session_state['user'] = user
+            st.session_state['show_main'] = True
+            st.rerun()
 
-
-
-# Main function controlling the app flow
+# Initialize exercises and app flow
 def main():
-    # Ensure that 'show_main' and 'user' are initialized in session state
     if 'show_main' not in st.session_state:
         st.session_state['show_main'] = False
-
+    if 'dynamic_exercises' not in st.session_state:
+        initialize_exercises()
     if st.session_state.get('show_main', False) and 'user' in st.session_state:
-        # Load data only once after the user is selected
-        if 'stored_values_df' not in st.session_state:
-            st.session_state['stored_values_df'] = fetch_data_as_dataframe(st.session_state['user'])  # Pass the user argument
-
-        # Proceed to the main app page after user is selected
         main_app_page()
     else:
-        # Show the welcome page if user not selected
         welcome_page()
 
-        
-        
 # App initialization
 if __name__ == '__main__':
     if runtime.exists():    
