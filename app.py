@@ -10,15 +10,13 @@ from streamlit.web import cli as stcli
 
 # Function to initialize exercises from JSON
 def initialize_exercises():
-    # Check if JSON file exists and load it; otherwise, initialize with empty dictionary
     if os.path.exists('exercise_data.json') and os.path.getsize('exercise_data.json') > 0:
         with open('exercise_data.json', 'r') as file:
             st.session_state['dynamic_exercises'] = json.load(file)
     else:
-        # If JSON is missing or empty, initialize with an empty structure
         st.session_state['dynamic_exercises'] = {}
 
-# Save the current exercises to JSON file to persist changes
+# Save the current exercises to JSON file
 def save_exercises_to_json():
     with open('exercise_data.json', 'w') as file:
         json.dump(st.session_state['dynamic_exercises'], file)
@@ -28,6 +26,12 @@ def save_exercises_to_json():
 def fetch_data_as_dataframe(user):
     data = fetch_data()  
     df = pd.DataFrame(data)
+
+    # Ensure the DataFrame has expected columns, even if no data is present
+    if df.empty:
+        df = pd.DataFrame(columns=['user', 'exercise', 'date', 'weight'])
+
+    # Filter by user
     return df[df['user'] == user] 
 
 # Function to create the input form for exercises
@@ -56,12 +60,12 @@ def exercise_input_tab(muscle_group):
 
         # Create two columns for form and table
         col1, col2 = st.columns(2)
-        table_placeholder = col1.empty()
+        table_placeholder = col2.empty()
 
         display_exercise_table(table_placeholder, exercise_data)
 
-        # Column 2: Input form
-        with col2:
+        # Column 1: Input form
+        with col1:
             value = st.number_input(f"Enter weight for {exercise}:", min_value=1, key=f"{muscle_group}_{exercise}_weight_input")
             date = st.date_input("Select date:", value=datetime.today().date(), key=f"{muscle_group}_{exercise}_date_input")
 
@@ -79,7 +83,17 @@ def exercise_input_tab(muscle_group):
     if st.button("Add Exercise", key=f"add_{muscle_group}_exercise") and new_exercise:
         if new_exercise not in st.session_state['dynamic_exercises'].get(muscle_group, []):
             st.session_state['dynamic_exercises'].setdefault(muscle_group, []).append(new_exercise)
-            save_exercises_to_json()  # Save the updated exercises list
+            save_exercises_to_json()
+            st.experimental_rerun()
+
+    # Option to delete an exercise
+    st.write("### Remove an Exercise")
+    exercise_to_delete = st.selectbox(f"Select an exercise to remove from {muscle_group}:", options=exercises, key=f"delete_{muscle_group}_exercise")
+    if st.button("Delete Exercise", key=f"delete_{muscle_group}_exercise_button"):
+        if exercise_to_delete in st.session_state['dynamic_exercises'].get(muscle_group, []):
+            st.session_state['dynamic_exercises'][muscle_group].remove(exercise_to_delete)
+            save_exercises_to_json()
+            st.success(f"Exercise '{exercise_to_delete}' removed from {muscle_group}!")
             st.rerun()
 
 # Display exercise table
