@@ -23,7 +23,7 @@ def save_exercises_to_json():
         json.dump(st.session_state['dynamic_exercises'], file)
 
 # Function to fetch data as DataFrame from MongoDB
-@st.cache_data(show_spinner=False)
+# @st.cache_data(show_spinner=False)
 def fetch_data_as_dataframe(user):
     data = fetch_data()  
     df = pd.DataFrame(data)
@@ -155,9 +155,6 @@ def main_app_page():
     for muscle_group, tab in zip(muscle_groups, tabs):
         with tab:
             exercise_input_tab(muscle_group)
-            
-    time.sleep(5)
-    st.rerun()      
 
 
 # Welcome page
