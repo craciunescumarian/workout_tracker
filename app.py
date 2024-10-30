@@ -73,6 +73,7 @@ def exercise_input_tab(muscle_group):
             if st.button('Submit', key=f"{muscle_group}_{exercise}_submit"):
                 add_value(st.session_state['user'], exercise, value, str(date))
                 st.success(f'Weight added for {st.session_state["user"]} in {exercise}!')
+                st.rerun()
 
                 new_entry = pd.DataFrame({'date': [pd.to_datetime(date)], 'weight': [value], 'exercise': [exercise]})
                 exercise_data = pd.concat([exercise_data, new_entry], ignore_index=True)
