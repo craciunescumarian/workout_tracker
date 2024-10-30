@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import sys
 import os
+import time
 from datetime import datetime
 from database import add_value, fetch_data
 from streamlit import runtime
@@ -73,12 +74,13 @@ def exercise_input_tab(muscle_group):
             if st.button('Submit', key=f"{muscle_group}_{exercise}_submit"):
                 add_value(st.session_state['user'], exercise, value, str(date))
                 st.success(f'Weight added for {st.session_state["user"]} in {exercise}!')
-                st.rerun()
+                
 
                 new_entry = pd.DataFrame({'date': [pd.to_datetime(date)], 'weight': [value], 'exercise': [exercise]})
                 exercise_data = pd.concat([exercise_data, new_entry], ignore_index=True)
                 exercise_data.sort_values(by='date', inplace=True)
                 display_exercise_table(table_placeholder, exercise_data)
+                st.rerun()
     
     st.write("") 
     st.markdown(
@@ -153,6 +155,10 @@ def main_app_page():
     for muscle_group, tab in zip(muscle_groups, tabs):
         with tab:
             exercise_input_tab(muscle_group)
+            
+    time.sleep(5)
+    st.rerun()      
+
 
 # Welcome page
 def welcome_page():
