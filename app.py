@@ -22,9 +22,12 @@ def save_exercises_to_json():
     with open('exercise_data.json', 'w') as file:
         json.dump(st.session_state['dynamic_exercises'], file)
 
+if 'refresh_data' not in st.session_state:
+    st.session_state['refresh_data'] = False
+        
 # Function to fetch data as DataFrame from MongoDB
-# @st.cache_data(show_spinner=False)
-def fetch_data_as_dataframe(user):
+@st.cache_data(show_spinner=False)
+def fetch_data_as_dataframe(user,refresh):
     data = fetch_data()  
     df = pd.DataFrame(data)
 
@@ -35,6 +38,12 @@ def fetch_data_as_dataframe(user):
     # Filter by user
     return df[df['user'] == user] 
 
+# Refresh data when a new entry is submitted
+def submit_data(user, exercise, weight, date):
+    add_value(user, exercise, weight, date)  # Insert into DB
+    st.session_state['refresh_data'] = not st.session_state['refresh_data']  # Toggle to refresh cache
+
+
 # Function to create the input form for exercises
 def exercise_input_tab(muscle_group):
     # Exercises loaded dynamically from session state
@@ -42,7 +51,7 @@ def exercise_input_tab(muscle_group):
 
     for exercise in exercises:
         # Fetch data for the specific exercise
-        df = fetch_data_as_dataframe(st.session_state['user'])
+        df = fetch_data_as_dataframe(st.session_state['user'], st.session_state['refresh_data'])
         exercise_data = df[df['exercise'] == exercise].copy()
 
         # Placeholder dataframe if no data exists
@@ -148,7 +157,7 @@ def main_app_page():
         st.session_state['show_main'] = False
         st.rerun()
 
-    stored_values_df = fetch_data_as_dataframe(st.session_state['user'])
+    stored_values_df = fetch_data_as_dataframe(st.session_state['user'], st.session_state['refresh_data'])
     muscle_groups = st.session_state['dynamic_exercises'].keys()
     tabs = st.tabs(muscle_groups)
 
