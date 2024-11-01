@@ -22,12 +22,10 @@ def save_exercises_to_json():
     with open('exercise_data.json', 'w') as file:
         json.dump(st.session_state['dynamic_exercises'], file)
 
-if 'refresh_data' not in st.session_state:
-    st.session_state['refresh_data'] = False
         
 # Function to fetch data as DataFrame from MongoDB
-@st.cache_data(show_spinner=False)
-def fetch_data_as_dataframe(user,refresh):
+@st.cache_data(show_spinner=False) 
+def fetch_data_as_dataframe(user):
     data = fetch_data()  
     df = pd.DataFrame(data)
 
@@ -38,11 +36,6 @@ def fetch_data_as_dataframe(user,refresh):
     # Filter by user
     return df[df['user'] == user] 
 
-# Refresh data when a new entry is submitted
-def submit_data(user, exercise, weight, date):
-    add_value(user, exercise, weight, date)  # Insert into DB
-    st.session_state['refresh_data'] = not st.session_state['refresh_data']  # Toggle to refresh cache
-
 
 # Function to create the input form for exercises
 def exercise_input_tab(muscle_group):
@@ -51,7 +44,7 @@ def exercise_input_tab(muscle_group):
 
     for exercise in exercises:
         # Fetch data for the specific exercise
-        df = fetch_data_as_dataframe(st.session_state['user'], st.session_state['refresh_data'])
+        df = fetch_data_as_dataframe(st.session_state['user'])
         exercise_data = df[df['exercise'] == exercise].copy()
 
         # Placeholder dataframe if no data exists
@@ -67,7 +60,7 @@ def exercise_input_tab(muscle_group):
         st.markdown(f"""<div style="border: 3px solid #FFA500; padding: 3px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
                         <h4 style="color:#FFA500;">{exercise}</h4></div>""", unsafe_allow_html=True)
         st.line_chart(exercise_data.set_index('formatted_date')['weight'], height=200)
-
+        
         # Create two columns for form and table
         col_table, col_input = st.columns(2)
         # Column on the left for displaying the table
@@ -83,13 +76,13 @@ def exercise_input_tab(muscle_group):
             if st.button('Submit', key=f"{muscle_group}_{exercise}_submit"):
                 add_value(st.session_state['user'], exercise, value, str(date))
                 st.success(f'Weight added for {st.session_state["user"]} in {exercise}!')
-                
-
+                fetch_data_as_dataframe.clear()
                 new_entry = pd.DataFrame({'date': [pd.to_datetime(date)], 'weight': [value], 'exercise': [exercise]})
                 exercise_data = pd.concat([exercise_data, new_entry], ignore_index=True)
                 exercise_data.sort_values(by='date', inplace=True)
                 display_exercise_table(table_placeholder, exercise_data)
                 st.rerun()
+ 
     
     st.write("") 
     st.markdown(
@@ -157,7 +150,7 @@ def main_app_page():
         st.session_state['show_main'] = False
         st.rerun()
 
-    stored_values_df = fetch_data_as_dataframe(st.session_state['user'], st.session_state['refresh_data'])
+    stored_values_df = fetch_data_as_dataframe(st.session_state['user'])
     muscle_groups = st.session_state['dynamic_exercises'].keys()
     tabs = st.tabs(muscle_groups)
 
